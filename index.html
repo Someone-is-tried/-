@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OOXX AI</title>
+  <style>
+    canvas {
+      background-color: black;
+      display: block;
+      margin: auto;
+    }
+    body {
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    #message {
+      margin-top: 10px;
+      font-size: 18px;
+      color: lightgray;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h2>OOXX_AI (Minimax)</h2>
+  <canvas id="gameCanvas" width="500" height="500"></canvas>
+  <div id="message">Click to start</div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const messageDiv = document.getElementById("message");
+
+    const WIDTH = 500;
+    const CELL_SIZE = WIDTH / 3;
+
+    let board = ["", "", "", "", "", "", "", "", ""];
+    let player = "O";
+    let ai = "X";
+    let gameRun = true;
+    let currentPlayer = player;
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, WIDTH, WIDTH);
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 3;
+
+      // Draw lines
+      for (let i = 1; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL_SIZE);
+        ctx.lineTo(WIDTH, i * CELL_SIZE);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(i * CELL_SIZE, 0);
+        ctx.lineTo(i * CELL_SIZE, WIDTH);
+        ctx.stroke();
+      }
+
+      // Draw pieces
+      board.forEach((val, idx) => {
+        const x = (idx % 3) * CELL_SIZE + CELL_SIZE / 2;
+        const y = Math.floor(idx / 3) * CELL_SIZE + CELL_SIZE / 2;
+        if (val === "O") {
+          ctx.strokeStyle = "blue";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(x, y, CELL_SIZE / 3, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (val === "X") {
+          ctx.strokeStyle = "red";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(x - CELL_SIZE / 3, y - CELL_SIZE / 3);
+          ctx.lineTo(x + CELL_SIZE / 3, y + CELL_SIZE / 3);
+          ctx.moveTo(x + CELL_SIZE / 3, y - CELL_SIZE / 3);
+          ctx.lineTo(x - CELL_SIZE / 3, y + CELL_SIZE / 3);
+          ctx.stroke();
+        }
+      });
+    }
+
+    function getEmptyCells(b) {
+      return b.map((v, i) => v === "" ? i : null).filter(i => i !== null);
+    }
+
+    function checkWin(b, p) {
+      const wins = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6]
+      ];
+      return wins.some(line => line.every(i => b[i] === p));
+    }
+
+    function checkDraw(b) {
+      return b.every(cell => cell !== "");
+    }
+
+    function minimax(b, depth, isMaximizing) {
+      if (checkWin(b, ai)) return 10 - depth;
+      if (checkWin(b, player)) return depth - 10;
+      if (checkDraw(b)) return 0;
+
+      const empties = getEmptyCells(b);
+      if (isMaximizing) {
+        let bestScore = -Infinity;
+        for (let idx of empties) {
+          b[idx] = ai;
+          const score = minimax(b, depth + 1, false);
+          b[idx] = "";
+          bestScore = Math.max(score, bestScore);
+        }
+        return bestScore;
+      } else {
+        let bestScore = Infinity;
+        for (let idx of empties) {
+          b[idx] = player;
+          const score = minimax(b, depth + 1, true);
+          b[idx] = "";
+          bestScore = Math.min(score, bestScore);
+        }
+        return bestScore;
+      }
+    }
+
+    function minimaxAI() {
+      let bestScore = -Infinity;
+      let move = -1;
+      for (let idx of getEmptyCells(board)) {
+        board[idx] = ai;
+        const score = minimax(board, 0, false);
+        board[idx] = "";
+        if (score > bestScore) {
+          bestScore = score;
+          move = idx;
+        }
+      }
+      return move;
+    }
+
+    function aiTurn() {
+      if (!gameRun) return;
+      const move = minimaxAI();
+      board[move] = ai;
+      if (checkWin(board, ai)) {
+        gameRun = false;
+        messageDiv.innerText = "AI win | One more time";
+      } else if (checkDraw(board)) {
+        gameRun = false;
+        messageDiv.innerText = "Draw | One more time";
+      } else {
+        currentPlayer = player;
+      }
+      drawBoard();
+    }
+
+    function playerMove(index) {
+      if (!gameRun || board[index] !== "" || currentPlayer !== player) return;
+      board[index] = player;
+      if (checkWin(board, player)) {
+        gameRun = false;
+        messageDiv.innerText = "Player win | One more time";
+      } else if (checkDraw(board)) {
+        gameRun = false;
+        messageDiv.innerText = "Draw | One more time";
+      } else {
+        currentPlayer = ai;
+        setTimeout(aiTurn, Math.random() * 500 + 300);
+      }
+      drawBoard();
+    }
+
+    function restartGame() {
+      board = ["", "", "", "", "", "", "", "", ""];
+      currentPlayer = player;
+      gameRun = true;
+      messageDiv.innerText = "";
+      drawBoard();
+    }
+
+    canvas.addEventListener("click", e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const col = Math.floor(x / CELL_SIZE);
+      const row = Math.floor(y / CELL_SIZE);
+      const idx = row * 3 + col;
+      playerMove(idx);
+    });
+
+    messageDiv.addEventListener("click", () => {
+      if (!gameRun) restartGame();
+    });
+
+    // 初始繪圖
+    drawBoard();
+  </script>
+</body>
+</html>
